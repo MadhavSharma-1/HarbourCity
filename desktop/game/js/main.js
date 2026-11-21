@@ -20,6 +20,8 @@ import { Weather, News, CityEvents } from './city.js';
 import { Missions } from './missions.js';
 import { Phone } from './phone.js';
 import { saveGame, loadGame, hasSave } from './save.js';
+import { loadAssets, Person } from './assets.js';
+import { Humanoid } from './humanoid.js';
 import { clamp, damp, lerp, angleDiff } from './util.js';
 
 const $ = (id) => document.getElementById(id);
@@ -80,7 +82,8 @@ class Game {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.15, 12000);
     this.scene.add(this.camera);
-    this.shared = { uTime: { value: 0 }, uNight: { value: 0 }, uSunIntensity: { value: 1 }, uOutage: { value: new THREE.Vector3(0, 0, 0) } };
+    this.shared = { uTime: { value: 0 }, uNight: { value: 0 }, uSunIntensity: { value: 1 }, uOutage: { value: new THREE.Vector3(0, 0, 0) }, uBrick: { value: new THREE.DataTexture(new Uint8Array([200, 200, 200, 255]), 1, 1) } };
+    this.shared.uBrick.value.needsUpdate = true;
     this.input = new Input(this.canvas);
     this.audio = new Audio();
     this.time = 0; this.simTime = 0; this.shake = 0; this.playing = false; this.paused = false;
@@ -92,9 +95,17 @@ class Game {
 
   async build() {
     const msg = (t) => { $('loadMsg').textContent = t; return new Promise((res) => setTimeout(res, 0)); };
+    this.assets = await loadAssets(this.renderer, (t) => { $('loadMsg').textContent = t; });
+    this.makeHuman = (look) => (this.assets.people ? new Person(this.assets.people, look) : new Humanoid(look));
+    if (this.assets.textures.brick_diffuse) this.shared.uBrick.value = this.assets.textures.brick_diffuse;
     await msg('Building the city…');
     this.world = new World(this.scene, this.shared);
     this.world.build((t) => { $('loadMsg').textContent = t; });
+    const grassTex = this.assets.textures['grasslight-big'];
+    if (grassTex) {
+      const g1 = grassTex.clone(); g1.needsUpdate = true; g1.repeat.set(1800, 1000); this.world.grassMat.map = g1; this.world.grassMat.color.setRGB(0.85, 0.9, 0.8);
+      const g2 = grassTex.clone(); g2.needsUpdate = true; g2.repeat.set(10, 10); this.world.lawnMat.map = g2;
+    }
     await msg('Filling the ocean…');
     this.ocean = createOcean(this.scene, this.shared);
     this.env = new Environment(this);

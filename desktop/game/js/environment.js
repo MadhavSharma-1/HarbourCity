@@ -200,6 +200,13 @@ export class Environment {
 
     // re-render reflection probe from the sky every few seconds
     this.envTimer -= dt * (fast ? 20 : 1);
+    const hdr = g.assets?.env;
+    if (hdr && hdr.city) {
+      // real captured skies for reflections: city by day, sunset around dusk/dawn, night after dark
+      const want = sy > 0.18 ? hdr.city : sy > -0.08 ? (hdr.sunset || hdr.city) : (hdr.night || hdr.city);
+      if (g.scene.environment !== want) g.scene.environment = want;
+      this.envTimer = 1e9;
+    }
     if (this.envTimer <= 0) {
       this.envTimer = 4;
       const eu = this.envSky.material.uniforms;

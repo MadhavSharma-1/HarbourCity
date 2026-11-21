@@ -6,7 +6,7 @@ import { clamp, damp, angleDiff } from './util.js';
 export class Player {
   constructor(game) {
     this.game = game;
-    this.human = new Humanoid({ skin: '#d9a77f', hair: '#2a1a10', shirt: '#24364f', pants: '#2f4a6b', shoes: '#f2f2f2', longSleeve: true, height: 1.0 });
+    this.human = game.makeHuman({ female: false, skin: '#d9a77f', hair: '#2a1a10', shirt: '#24364f', pants: '#2f4a6b', shoes: '#f2f2f2', longSleeve: true, height: 1.0 });
     game.scene.add(this.human.root);
     this.pos = new THREE.Vector3();
     this.vel = new THREE.Vector3();
@@ -181,8 +181,8 @@ export class Player {
     else g.notify(v.health <= 0 ? 'This engine is wrecked.' : 'The tank is empty.');
     // sit the player in the driver's seat
     const seatHip = Math.min(v.dims.clr + 0.2, v.spec.hgt - 0.86);
-    v.bodyGroup.add(this.human.root);
-    this.human.root.position.set(0.4, seatHip - 0.53, v.spec.cabOff + 0.25);
+    if (this.human.isPerson) this.human.root.visible = false; // realistic model: hidden behind the tinted glass
+    else { v.bodyGroup.add(this.human.root); this.human.root.position.set(0.4, seatHip - 0.53, v.spec.cabOff + 0.25); }
     this.human.root.rotation.set(0, 0, 0);
     this.human.cur = {};
     g.hud.showCar(true);
@@ -205,6 +205,7 @@ export class Player {
     this.heading = v.heading;
     this.vel.set(0, 0, 0);
     g.scene.add(this.human.root);
+    this.human.root.visible = true;
     this.human.cur = {};
     v.driver = null; v.indicator = 0;
     if (v.ai) v.ai.mode = 'parked';

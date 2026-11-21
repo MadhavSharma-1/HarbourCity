@@ -207,6 +207,7 @@ export function makeBuildingMaterial(shared, glass) {
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uNight = shared.uNight;
     sh.uniforms.uOutage = shared.uOutage;
+    sh.uniforms.uBrick = shared.uBrick;
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
         varying vec3 vWPos; varying vec3 vWNrm; varying float vSeed;`)
@@ -217,7 +218,7 @@ export function makeBuildingMaterial(shared, glass) {
         vSeed = fract(sin(dot(instanceMatrix[3].xz, vec2(12.9898, 78.233))) * 43758.5453);`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-        uniform float uNight; uniform vec3 uOutage; varying vec3 vWPos; varying vec3 vWNrm; varying float vSeed;
+        uniform float uNight; uniform vec3 uOutage; uniform sampler2D uBrick; varying vec3 vWPos; varying vec3 vWNrm; varying float vSeed;
         float bh21(vec2 p){ return fract(sin(dot(p, vec2(41.37, 289.13))) * 43758.5453); }`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         {
@@ -234,6 +235,11 @@ export function makeBuildingMaterial(shared, glass) {
           float slab = isWall * (1.0 - step(0.06, f.y)) * (1.0 - groundFloor);
           float side = floor(dot(vWNrm.xz, vec2(1.0, 3.0)) + 4.0);
           float rnd = bh21(id + vec2(vSeed * 97.0, side * 13.1));
+          // real masonry/plaster texture on walls (world-space), varied per building
+          vec3 brick = texture2D(uBrick, vec2(u * 0.33 + vSeed * 7.0, vWPos.y * 0.33)).rgb;
+          float bl = dot(brick, vec3(0.333));
+          diffuseColor.rgb *= mix(vec3(1.0), mix(vec3(bl * 1.9), brick * 2.0, 0.35 + 0.4 * fract(vSeed * 13.0)), ${glass ? '0.0' : '0.6'} * isWall * (1.0 - win));
+          diffuseColor.rgb *= 0.92 + 0.16 * bh21(floor(vWPos.xz * 0.2) + id.y);
           vec3 glassCol = mix(vec3(0.035, 0.05, 0.065), vec3(0.12, 0.16, 0.2), rnd);
           diffuseColor.rgb = mix(diffuseColor.rgb, glassCol, win);
           diffuseColor.rgb *= 1.0 - slab * 0.35;
@@ -302,8 +308,8 @@ export class World {
     const s = this.scene;
     const grassGeo = new THREE.PlaneGeometry(12000, 6000 + SHORE_Z);
     grassGeo.rotateX(-Math.PI / 2);
-    grassGeo.translate(0, -0.05, (SHORE_Z - 6000) / 2);
-    const grass = new THREE.Mesh(grassGeo, new THREE.MeshStandardMaterial({ map: tex.grass, roughness: 1 }));
+    grassGeo.translate(0, -0.12, (SHORE_Z - 6000) / 2);
+    const grass = new THREE.Mesh(grassGeo, (this.grassMat = new THREE.MeshStandardMaterial({ map: tex.grass, roughness: 1 })));
     tex.grass.repeat.set(1200, 600);
     grass.receiveShadow = true;
     s.add(grass);
@@ -312,7 +318,7 @@ export class World {
     const roadGeo = new THREE.PlaneGeometry(size, size);
     roadGeo.rotateX(-Math.PI / 2);
     tex.asphalt.repeat.set(size / 7, size / 7);
-    const road = new THREE.Mesh(roadGeo, (this.roadMat = new THREE.MeshStandardMaterial({ map: tex.asphalt, roughness: 0.9, metalness: 0.0, color: 0xb8b8b8 })));
+    const road = new THREE.Mesh(roadGeo, (this.roadMat = new THREE.MeshStandardMaterial({ map: tex.asphalt, roughness: 0.9, metalness: 0.0, color: 0xb8b8b8, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 })));
     road.receiveShadow = true;
     s.add(road);
 
@@ -511,7 +517,7 @@ export class World {
 
     // park lawns + fountain
     const lawnGeo = new THREE.PlaneGeometry(BLOCK_HALF * 2 - 5, BLOCK_HALF * 2 - 5); lawnGeo.rotateX(-Math.PI / 2);
-    const lawnMat = new THREE.MeshStandardMaterial({ map: tex.parkGrass, roughness: 1 });
+    const lawnMat = (this.lawnMat = new THREE.MeshStandardMaterial({ map: tex.parkGrass, roughness: 1 }));
     const pathMat = new THREE.MeshStandardMaterial({ color: 0xb9ab8f, roughness: 1 });
     for (const p of this.parks) {
       const lawn = new THREE.Mesh(lawnGeo, lawnMat); lawn.position.set(p.x, 0.16, p.z); lawn.receiveShadow = true; this.scene.add(lawn);

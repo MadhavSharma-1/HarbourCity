@@ -18,7 +18,7 @@ export class NPC {
       longHair: p.female ? Math.random() < 0.75 : Math.random() < 0.08, bald: !p.female && Math.random() < 0.12,
       longSleeve: Math.random() < 0.4, height: (p.female ? 0.93 : 1.0) + (Math.random() - 0.5) * 0.1,
     };
-    this.human = new Humanoid(this.look);
+    this.human = this.game.makeHuman(this.look);
     this.citizenId = saved ? saved.id : 'c' + Math.floor(Math.random() * 1e9).toString(36);
     this.home = saved ? saved.home : { x, z };
     this.game.scene.add(this.human.root);

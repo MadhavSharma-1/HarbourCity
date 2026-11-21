@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { clamp, damp, lerp } from './util.js';
 import { groundHeight, WATER_LEVEL } from './world.js';
+import { applyCarModel } from './assets.js';
 
 export const SPECS = {
   sedan: { name: 'Sedan', len: 4.75, wid: 1.86, hgt: 1.45, cab: 2.55, cabOff: -0.15, taper: 0.6, r: 0.34, mass: 1500, power: 140000 },
@@ -175,6 +176,8 @@ export class Vehicle {
     this.radius = this.spec.wid / 2;
     this.driver = null;  // 'player' | 'ai' | null
     game.scene.add(this.model);
+    this.model.updateMatrixWorld(true);
+    if ((type === 'sports') && game.assets?.car) applyCarModel(this, game.assets.car);
   }
 
   place(x, z, h) { this.pos.set(x, groundHeight(x, z), z); this.heading = h; this.vel.set(0, 0); this.angVel = 0; this.syncModel(0); }
