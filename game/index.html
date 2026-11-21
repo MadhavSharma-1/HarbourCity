@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harbor City</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --accent:#ffb347; --good:#6fe08a; --bad:#ff5a5a; --water:#5fd4ff; --panel:rgba(8,12,18,.72); }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#000; color:#eee; font-family:Inter, system-ui, sans-serif; }
+  canvas#game { display:block; width:100vw; height:100vh; }
+  .hud { position:fixed; inset:0; pointer-events:none; user-select:none; }
+  .hidden { display:none !important; }
+
+  /* minimap */
+  #minimapWrap { position:absolute; left:22px; bottom:22px; width:230px; height:230px; border-radius:50%; overflow:hidden;
+    border:3px solid rgba(255,255,255,.75); box-shadow:0 6px 30px rgba(0,0,0,.6); background:#223; }
+  #minimap { width:100%; height:100%; }
+  #compassN { position:absolute; left:50%; top:4px; transform:translateX(-50%); font:700 13px Rajdhani; color:#fff; text-shadow:0 0 4px #000; }
+  .bars { position:absolute; left:22px; bottom:262px; width:230px; display:flex; flex-direction:column; gap:5px; }
+  .bar { height:7px; background:rgba(0,0,0,.55); border-radius:4px; overflow:hidden; }
+  .bar > i { display:block; height:100%; width:100%; transition:width .2s; }
+  #hpBar > i { background:linear-gradient(90deg,#3ac15a,#7dff9a); }
+  #o2Bar > i { background:linear-gradient(90deg,#2aa7e0,#7fe3ff); }
+
+  /* top right */
+  #topRight { position:absolute; right:26px; top:20px; text-align:right; font-family:Rajdhani; text-shadow:0 2px 6px rgba(0,0,0,.8); }
+  #clock { font-size:34px; font-weight:700; letter-spacing:1px; }
+  #money { font-size:28px; font-weight:700; color:#8ef59f; }
+  #treasure { font-size:18px; color:#ffd77a; }
+  #fps { font-size:13px; opacity:.6; font-family:Inter; }
+
+  /* vehicle cluster */
+  #cluster { position:absolute; right:26px; bottom:24px; width:300px; padding:14px 18px; border-radius:14px; background:var(--panel);
+    backdrop-filter:blur(6px); font-family:Rajdhani; box-shadow:0 8px 30px rgba(0,0,0,.5); }
+  #speed { font-size:64px; font-weight:700; line-height:.9; }
+  #speed small { font-size:20px; opacity:.7; margin-left:4px; }
+  #gearRpm { display:flex; justify-content:space-between; font-size:18px; opacity:.85; margin-top:4px; }
+  .gauge { margin-top:8px; font-size:14px; display:flex; align-items:center; gap:8px; }
+  .gauge .bar { flex:1; height:9px; }
+  #fuelBar > i { background:linear-gradient(90deg,#ffae3a,#ffe07a); }
+  #engBar > i { background:linear-gradient(90deg,#ff5a5a,#ffb36b,#7dff9a); }
+  #rpmBar > i { background:linear-gradient(90deg,#5fd4ff,#ff6a6a); }
+  #icons { display:flex; gap:10px; margin-top:10px; font-size:13px; font-weight:700; letter-spacing:.5px; }
+  #icons span { padding:2px 7px; border-radius:5px; background:rgba(255,255,255,.08); opacity:.35; }
+  #icons span.on { opacity:1; background:rgba(255,190,80,.25); color:#ffd27a; }
+  #icons span.warn.on { background:rgba(255,80,80,.3); color:#ff8a8a; }
+
+  /* depth */
+  #depth { position:absolute; right:26px; bottom:24px; padding:12px 18px; border-radius:14px; background:rgba(0,40,60,.55);
+    font-family:Rajdhani; font-size:22px; color:var(--water); text-align:right; }
+  #depth b { font-size:44px; display:block; line-height:1; }
+
+  #prompt { position:absolute; left:50%; bottom:110px; transform:translateX(-50%); padding:9px 16px; border-radius:10px;
+    background:var(--panel); font-size:15px; }
+  #prompt kbd, .kbd { display:inline-block; min-width:22px; padding:1px 6px; margin-right:6px; border-radius:5px; background:#fff; color:#111;
+    font:700 13px Inter; text-align:center; }
+  #feed { position:absolute; left:50%; top:22px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .note { padding:8px 16px; border-radius:10px; background:var(--panel); font-size:15px; animation:fadeNote 4.5s forwards; }
+  @keyframes fadeNote { 0%{opacity:0; transform:translateY(-6px)} 8%{opacity:1; transform:none} 80%{opacity:1} 100%{opacity:0} }
+
+  /* speech bubbles */
+  .bubble { position:absolute; transform:translate(-50%,-100%); max-width:260px; padding:7px 11px; border-radius:12px; background:rgba(255,255,255,.93);
+    color:#111; font-size:13.5px; line-height:1.3; box-shadow:0 4px 14px rgba(0,0,0,.35); white-space:normal; text-align:center; }
+  .bubble::after { content:""; position:absolute; left:50%; bottom:-6px; transform:translateX(-50%); border:6px solid transparent; border-top-color:rgba(255,255,255,.93); border-bottom:0; }
+  .bubble.angry { background:#ffe0dc; } .bubble.angry::after { border-top-color:#ffe0dc; }
+  .bubble.scared { background:#fff5c9; } .bubble.scared::after { border-top-color:#fff5c9; }
+  .bubble b { display:block; font-size:11px; color:#666; }
+
+  /* dialogue */
+  #dialogue { position:absolute; left:50%; bottom:24px; transform:translateX(-50%); width:min(720px,92vw); padding:18px 22px; border-radius:16px;
+    background:rgba(8,12,18,.86); backdrop-filter:blur(8px); pointer-events:auto; box-shadow:0 10px 40px rgba(0,0,0,.6); }
+  #dlgName { font:700 22px Rajdhani; color:var(--accent); }
+  #dlgMeta { font-size:12.5px; opacity:.65; margin-bottom:10px; }
+  #dlgText { font-size:17px; line-height:1.45; min-height:48px; }
+  #dlgOpts { margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  #dlgOpts button { text-align:left; padding:7px 11px; border-radius:9px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.05);
+    color:#eee; font:500 14.5px Inter; cursor:pointer; }
+  #dlgOpts button:hover { background:rgba(255,179,71,.18); border-color:rgba(255,179,71,.5); }
+
+  /* screens */
+  .screen { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:radial-gradient(ellipse at center, rgba(10,16,28,.82), rgba(0,0,0,.95)); z-index:10; }
+  .card { width:min(820px,94vw); max-height:92vh; overflow:auto; padding:34px 40px; border-radius:20px; background:rgba(14,20,30,.92); box-shadow:0 20px 80px rgba(0,0,0,.7); }
+  .card h1 { margin:0; font:700 64px Rajdhani; letter-spacing:3px; background:linear-gradient(90deg,#ffb347,#ff6f61,#5fd4ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .card h2 { font:700 22px Rajdhani; color:var(--accent); margin:22px 0 8px; letter-spacing:1px; }
+  .card p { opacity:.8; line-height:1.55; }
+  .controls { display:grid; grid-template-columns:repeat(3,1fr); gap:6px 22px; font-size:13.5px; }
+  .controls div { opacity:.9; }
+  .btn { margin-top:24px; padding:14px 34px; font:700 20px Rajdhani; letter-spacing:2px; border:0; border-radius:12px; cursor:pointer;
+    background:linear-gradient(90deg,#ffb347,#ff6f61); color:#1a0d00; }
+  .btn:disabled { opacity:.5; cursor:wait; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,.06); font-size:15px; }
+  select, input[type=range] { background:#1c2533; color:#eee; border:1px solid #334; border-radius:6px; padding:5px 8px; font:inherit; }
+  #loadMsg { margin-top:10px; font-size:13px; opacity:.6; }
+  #bigmap { position:fixed; inset:5vh 5vw; z-index:5; border-radius:18px; overflow:hidden; box-shadow:0 0 0 3px rgba(255,255,255,.5), 0 20px 80px #000; background:#111; }
+  #bigmap canvas { width:100%; height:100%; }
+  #blackout { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; font:700 72px Rajdhani; letter-spacing:6px; color:#ff6f61;
+    background:rgba(0,0,0,.7); z-index:6; }
+  @media (max-width: 700px) { #dlgOpts { grid-template-columns:1fr; } .controls { grid-template-columns:1fr 1fr; } .card h1 { font-size:44px; } #cluster { width:220px; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div class="hud" id="hud">
+  <div id="feed"></div>
+  <div id="bubbles"></div>
+  <div class="bars">
+    <div class="bar" id="hpBar" title="Health"><i></i></div>
+    <div class="bar hidden" id="o2Bar" title="Oxygen"><i></i></div>
+  </div>
+  <div id="minimapWrap"><canvas id="minimap" width="460" height="460"></canvas><div id="compassN">N</div></div>
+  <div id="topRight">
+    <div id="clock">17:00</div>
+    <div id="money">$500</div>
+    <div id="treasure">Treasures 0/8</div>
+    <div id="fps"></div>
+  </div>
+  <div id="cluster" class="hidden">
+    <div id="speed">0<small>km/h</small></div>
+    <div id="gearRpm"><span id="gear">P</span><span id="carName">Sedan</span></div>
+    <div class="gauge">RPM <div class="bar" id="rpmBar"><i></i></div></div>
+    <div class="gauge">FUEL <div class="bar" id="fuelBar"><i></i></div><span id="fuelTxt">45L</span></div>
+    <div class="gauge">ENGINE <div class="bar" id="engBar"><i></i></div><span id="engTxt">100%</span></div>
+    <div id="icons"><span id="icoL">◀</span><span id="icoLights">LIGHTS</span><span id="icoHaz" class="warn">HAZARD</span><span id="icoEng" class="warn">ENGINE</span><span id="icoFuel" class="warn">FUEL</span><span id="icoR">▶</span></div>
+  </div>
+  <div id="depth" class="hidden"><b id="depthVal">0m</b>DEPTH</div>
+  <div id="prompt" class="hidden"></div>
+  <div id="dialogue" class="hidden">
+    <div id="dlgName"></div><div id="dlgMeta"></div><div id="dlgText"></div><div id="dlgOpts"></div>
+  </div>
+</div>
+<div id="bigmap" class="hidden"><canvas id="bigmapCanvas"></canvas></div>
+<div id="blackout" class="hidden">YOU BLACKED OUT</div>
+
+<div class="screen" id="startScreen">
+  <div class="card">
+    <h1>HARBOR CITY</h1>
+    <p>An open-world sandbox: a 1.6 km downtown grid, a beach and pier, and a 1.5 km ocean with reefs, kelp forests and a shipwreck to find.
+       Pedestrians have their own personalities and moods, and they remember what you do to them. Traffic stops at the lights. Cars burn fuel, have working lights and crumple when you crash.</p>
+    <h2>CONTROLS</h2>
+    <div class="controls">
+      <div><span class="kbd">WASD</span>Move / drive</div><div><span class="kbd">Mouse</span>Look (click to lock)</div><div><span class="kbd">Shift</span>Sprint / swim fast</div>
+      <div><span class="kbd">Space</span>Jump · handbrake · swim up</div><div><span class="kbd">C</span>Dive · hazards (car)</div><div><span class="kbd">F</span>Enter / exit vehicle</div>
+      <div><span class="kbd">E</span>Talk · pick up treasure</div><div><span class="kbd">L</span>Headlights</div><div><span class="kbd">H</span>Horn</div>
+      <div><span class="kbd">Z / X</span>Turn signals</div><div><span class="kbd">R</span>Refuel at station</div><div><span class="kbd">T</span>Fast-forward time</div>
+      <div><span class="kbd">M</span>City map</div><div><span class="kbd">V</span>Walk toggle</div><div><span class="kbd">Esc</span>Settings / pause</div>
+    </div>
+    <h2>GRAPHICS</h2>
+    <div class="row">Render resolution
+      <select id="optRes">
+        <option value="1080">1080p (1920×1080)</option>
+        <option value="1440" selected>2K (2560×1440)</option>
+        <option value="2160">4K (3840×2160)</option>
+        <option value="native">Native display</option>
+      </select></div>
+    <div class="row">Shadows <select id="optShadow"><option value="4096">Ultra</option><option value="2048" selected>High</option><option value="1024">Medium</option><option value="0">Off</option></select></div>
+    <div class="row">Bloom &amp; post effects <select id="optBloom"><option value="1" selected>On</option><option value="0">Off</option></select></div>
+    <div class="row">Pedestrians <select id="optPeds"><option value="16">Low</option><option value="30" selected>Medium</option><option value="45">High</option></select></div>
+    <div class="row">Traffic <select id="optCars"><option value="18">Low</option><option value="32" selected>Medium</option><option value="48">High</option></select></div>
+    <div class="row">NPC voices (text-to-speech) <select id="optVoice"><option value="1" selected>On</option><option value="0">Off</option></select></div>
+    <button class="btn" id="startBtn" disabled>LOADING…</button>
+    <div id="loadMsg">Building the city…</div>
+  </div>
+</div>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
