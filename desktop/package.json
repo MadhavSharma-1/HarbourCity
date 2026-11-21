@@ -1,0 +1,57 @@
+{
+  "name": "harbor-city",
+  "productName": "Harbor City",
+  "version": "1.0.0",
+  "description": "Harbor City - open-world sandbox with AI citizens",
+  "main": "main.js",
+  "author": "Harbor City",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis --x64 --publish never"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0"
+  },
+  "devDependencies": {
+    "electron": "31.7.7",
+    "electron-builder": "24.13.3",
+    "resedit": "^2.0.3"
+  },
+  "build": {
+    "appId": "com.harborcity.game",
+    "productName": "Harbor City",
+    "copyright": "Harbor City",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "game/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Harbor City",
+      "runAfterFinish": true,
+      "artifactName": "HarborCity-Setup-${version}.exe"
+    }
+  }
+}
